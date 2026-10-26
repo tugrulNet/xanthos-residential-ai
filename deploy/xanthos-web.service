@@ -1,0 +1,25 @@
+[Unit]
+Description=Xanthos Residential AI - Blazor web app (net10.0, server interactive)
+After=network.target
+
+[Service]
+Type=simple
+User=xanthosapp
+Group=xanthosapp
+WorkingDirectory=/opt/xanthos/web
+# NOT port 5005 (Chim app owns it). Web: 5010, bound to localhost only;
+# nginx (Hestia) proxies https://xanthos.tugrul.net -> 127.0.0.1:5010.
+ExecStart=/usr/bin/dotnet /opt/xanthos/web/XanthosResidentialAI.dll --urls http://127.0.0.1:5010
+Restart=always
+RestartSec=5
+KillSignal=SIGINT
+Environment=ASPNETCORE_ENVIRONMENT=Production
+# Non-secret local service URLs (agent 5011, pipeline 5012 on the server).
+Environment=Agent__BaseUrl=http://127.0.0.1:5011
+Environment=PhotoPipeline__BaseUrl=http://127.0.0.1:5012
+# Server-only secrets (MODEL_API_KEY etc.) live in this file; it is created
+# on the server and never committed anywhere.
+EnvironmentFile=-/etc/xanthos/web.env
+
+[Install]
+WantedBy=multi-user.target

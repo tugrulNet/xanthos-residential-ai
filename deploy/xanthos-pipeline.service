@@ -1,0 +1,16 @@
+[Unit]
+Description=Xanthos Residential AI - photo pipeline (triage / SAM later)
+After=network.target
+
+[Service]
+Type=simple
+User=xanthosapp
+Group=xanthosapp
+WorkingDirectory=/opt/xanthos/photo-pipeline
+ExecStart=/opt/xanthos/venvs/pipeline/bin/python -m uvicorn app:app --host 127.0.0.1 --port 5012
+Restart=always
+RestartSec=5
+EnvironmentFile=-/etc/xanthos/pipeline.env
+
+[Install]
+WantedBy=multi-user.target

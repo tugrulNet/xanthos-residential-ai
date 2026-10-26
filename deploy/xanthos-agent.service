@@ -1,0 +1,18 @@
+[Unit]
+Description=Xanthos Residential AI - buyer agent (LangGraph / Muse Spark)
+After=network.target
+
+[Service]
+Type=simple
+User=xanthosapp
+Group=xanthosapp
+WorkingDirectory=/opt/xanthos/buyer-agent
+ExecStart=/opt/xanthos/venvs/agent/bin/python -m uvicorn app:app --host 127.0.0.1 --port 5011
+Restart=always
+RestartSec=5
+Environment=PHOTO_PIPELINE_BASE_URL=http://127.0.0.1:5012
+# MODEL_API_KEY is read from this server-only env file (never committed):
+EnvironmentFile=/etc/xanthos/agent.env
+
+[Install]
+WantedBy=multi-user.target
