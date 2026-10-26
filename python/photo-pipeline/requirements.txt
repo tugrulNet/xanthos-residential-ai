@@ -7,5 +7,6 @@ Pillow==11.1.0
 ImageHash==4.3.1
 numpy==1.26.4
 transformers==4.48.0
+python-multipart==0.0.32  # /analyze-upload endpoint needs it (found 28 Oct)
 # torch CPU ayrıca kurulur (README'ye bak):
 # pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
