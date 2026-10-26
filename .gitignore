@@ -1,0 +1,17 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+# Secrets / local
+*.env
+appsettings.Development.json
+# OS
+.DS_Store
+Thumbs.db
