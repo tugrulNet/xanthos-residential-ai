@@ -1,7 +1,7 @@
 ﻿@page "/"
 @using XanthosResidentialAI.Services
 @inject IXanthosScoreClient ScoreClient
-@inject IMetaModelClient AssistantClient
+@inject IBuyerAgentClient AgentClient
 @inject IPhotoPipelineClient PhotoClient
 @inject ISummaryService Summary
 
@@ -99,15 +99,28 @@
         </div>
     </section>
 
-    @* ---------- 2. Buyer assistant ---------- *@
+    @* ---------- 2. Buyer agent (LangGraph) ---------- *@
     <section class="card mb-4">
-        <div class="card-header fw-semibold">2 &middot; Buyer assistant (Muse Spark)</div>
+        <div class="card-header fw-semibold">2 &middot; Buyer agent (LangGraph &middot; Muse Spark)</div>
         <div class="card-body">
-            <div class="border rounded p-3 mb-3" style="min-height: 160px; max-height: 380px; overflow-y: auto;">
+            @if (agentSteps.Count > 0)
+            {
+                <div class="border rounded p-2 mb-3 small bg-body-tertiary" style="max-height: 190px; overflow-y: auto;">
+                    <div class="fw-semibold mb-1">Agent steps (this run)</div>
+                    <ol class="mb-0 ps-3">
+                        @foreach (var agentStep in agentSteps)
+                        {
+                            <li><code>@agentStep.Step</code> &mdash; @agentStep.Detail</li>
+                        }
+                    </ol>
+                </div>
+            }
+
+            <div class="border rounded p-3 mb-3" style="min-height: 120px; max-height: 380px; overflow-y: auto;">
                 @if (messages.Count == 0)
                 {
                     <p class="text-secondary small mb-0">
-                        Ask about the score shown above. The assistant only uses the data
+                        Ask about the score shown above. The agent only uses the data
                         on this page: it says so when something is missing, and it never
                         gives price predictions.
                     </p>
@@ -116,7 +129,7 @@
                 {
                     <div class="mb-2">
                         <span class="badge @(message.Role == "assistant" ? "bg-primary" : "bg-secondary")">@message.Role</span>
-                        <span class="ms-1">@message.Text</span>
+                        <span class="ms-1" style="white-space: pre-wrap;">@message.Text</span>
                         @if (message.CitedSources.Count > 0)
                         {
                             <div class="small text-secondary ms-1">sources: @string.Join(", ", message.CitedSources)</div>
@@ -138,12 +151,29 @@
                 </div>
             </form>
 
-            @if (!AssistantClient.IsConfigured)
+            @if (agentMode == "langgraph")
             {
                 <p class="small text-secondary mt-2 mb-0">
-                    Assistant status: not connected yet — the Meta Model API endpoint and
-                    request/response schema must be verified against the official docs
-                    before any call is coded (28 Oct step). Replies are placeholders until then.
+                    Agent mode: <span class="badge bg-success">LangGraph &middot; Muse Spark</span>
+                    &mdash; the answer above went through the agent graph with tool calls.
+                </p>
+            }
+            else if (agentMode == "rules-only")
+            {
+                <p class="small text-secondary mt-2 mb-0">
+                    Agent mode: <span class="badge bg-warning text-dark">rules-only fallback</span>
+                    &mdash; the Meta API key (<code>MODEL_API_KEY</code>) is not configured yet, so
+                    the same tools and the same state produced this answer deterministically.
+                    This is reported honestly and is not presented as an LLM answer.
+                </p>
+            }
+            else if (agentMode == "unavailable")
+            {
+                <p class="small text-danger mt-2 mb-0">
+                    Agent mode: <span class="badge bg-danger">service unreachable</span>
+                    &mdash; the Python buyer agent is not running. Start it with
+                    <code>python/buyer-agent/.venv/Scripts/python.exe -m uvicorn app:app --port 8001</code>
+                    (working directory <code>python/buyer-agent</code>).
                 </p>
             }
         </div>
@@ -248,10 +278,12 @@
     private string? scoreError;
     private ScoreResult? scoreResult;
 
-    // --- 2. assistant ---
+    // --- 2. buyer agent ---
     private readonly List<AssistantMessage> messages = new();
     private string chatInput = "";
     private bool chatLoading;
+    private List<AgentStep> agentSteps = new();
+    private string? agentMode;
 
     // --- 3. photos ---
     private string photoUrlsInput = "";
@@ -296,14 +328,18 @@
         chatLoading = true;
         try
         {
-            var context = Summary.BuildAssistantContext(scoreResult, photoResults, triageSummary);
-            var reply = await AssistantClient.ReplyAsync(messages, context);
-            messages.Add(reply);
+            var address = scoreResult.Score.Address;
+            var reply = await AgentClient.AskAsync(address, text, scoreResult, photoResults, triageSummary);
+            messages.Add(new AssistantMessage("assistant", reply.Answer, reply.Sources));
+            agentSteps = reply.Steps.ToList();
+            agentMode = reply.Mode;
         }
         catch (Exception ex)
         {
+            // Belt and braces: BuyerAgentClient already catches, this only
+            // fires on unexpected failures.
             messages.Add(new AssistantMessage(
-                "assistant", $"Assistant call failed: {ex.Message}", Array.Empty<string>()));
+                "assistant", $"Agent call failed: {ex.Message}", Array.Empty<string>()));
         }
         finally
         {

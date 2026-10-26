@@ -7,10 +7,18 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// One-flow services (27 Oct skeleton).
+// One-flow services (27 Oct skeleton + 28 Oct buyer agent).
 builder.Services.AddScoped<IXanthosScoreClient, XanthosScoreClient>();
-builder.Services.AddScoped<IMetaModelClient, MetaModelClient>();
 builder.Services.AddScoped<ISummaryService, SummaryService>();
+builder.Services.AddHttpClient<IBuyerAgentClient, BuyerAgentClient>((services, http) =>
+{
+    // Python buyer agent (python/buyer-agent, LangGraph + Muse Spark).
+    // Localhost URL is plain configuration, no credentials involved.
+    var baseUrl = services.GetRequiredService<IConfiguration>()["Agent:BaseUrl"]
+                  ?? "http://localhost:8001";
+    http.BaseAddress = new Uri(baseUrl);
+    http.Timeout = TimeSpan.FromSeconds(90); // the agent must never hang the UI
+});
 builder.Services.AddHttpClient<IPhotoPipelineClient, PhotoPipelineClient>((services, http) =>
 {
     // Local Python photo pipeline (python/photo-pipeline). Localhost URL is

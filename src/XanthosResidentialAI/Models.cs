@@ -53,3 +53,22 @@ public sealed record PhotoTriageSummary(
     int DiscardedPhotos,
     IReadOnlyDictionary<string, int> DiscardedByReason
 );
+
+/// <summary>One step of the buyer agent, shown in the UI so a judge can see
+/// it is an agent working, not a single chat call.</summary>
+public sealed record AgentStep(
+    string Step,
+    string Detail
+);
+
+/// <summary>Reply from the Python buyer agent (LangGraph, python/buyer-agent).
+/// Mode is "langgraph" (Muse Spark via Meta Model API), "rules-only"
+/// (deterministic fallback over the same tools and state — labelled on
+/// screen), or "unavailable" (service unreachable; page keeps cached data).</summary>
+public sealed record AgentReply(
+    string Answer,
+    IReadOnlyList<string> Sources,
+    IReadOnlyList<AgentStep> Steps,
+    string Mode,
+    string? Error
+);
