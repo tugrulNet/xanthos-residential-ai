@@ -41,6 +41,31 @@ language, and see what its listing photos actually show — on one screen.
 - Stretch only if the core is done by 31 Oct: Muse Image staged-room image,
   always labelled "AI staging, not a real photo".
 
+## Data source and security rule (owner decision, 26 Oct 2026 — binding)
+
+- **Data source is the existing live database.** Score and listing data come
+  from the live Xanthos `zoning` database, through the existing Xanthos score
+  service where available. Do NOT add a DDF import, do NOT call the Realtor
+  API, and do NOT use or store a Realtor API key in this project at all.
+  This rule is about the hackathon project only; it does not change any
+  separate Xanthos DDF import work.
+- **No secrets in this public repo, ever.** This covers every API key,
+  database connection string, database password, token, private key, and
+  any other information that could create a security hole — not only the
+  Meta Model API key. Such values live in environment / server secrets
+  only, never in code, config files, docs, comments, screenshots, or commit
+  messages in this repo. If a direct database read is ever needed locally,
+  it uses an environment-only, read-only connection string, and it is
+  never committed.
+- **Secret check after every upload, without exception.** Before every push:
+  review the staged diff and confirm no secret, connection string, password,
+  `.env` file, or `appsettings.Development.json` is included. After every
+  push: re-check the pushed files on GitHub (file list and diff) and confirm
+  the same. Report the result of both checks in your end-of-step report
+  ("pre-push check: clean / after-push check: clean", with the files checked).
+  If a secret is found, stop, tell the owner immediately, and do not push
+  again until it is removed and the owner confirms the next step.
+
 ## Hard rules
 
 - No API keys, tokens, or secrets in this repo. Meta Model API key comes from
@@ -72,6 +97,8 @@ language, and see what its listing photos actually show — on one screen.
   Python photo pipeline. The Blazor app itself is NOT yet generated.
 - First job: `dotnet new blazor -o src/XanthosResidentialAI --framework net10.0`,
   then replace its home page with the one flow above.
-- Open items from the owner: residential score endpoint contract (URL, method,
-  auth, sample request/response) or "start with cached demo scores" approval;
+- Open items from the owner: how the Blazor app reaches the live database
+  (existing Xanthos score service contract: URL, method, auth, sample
+  request/response) or "start with cached demo scores" approval;
   3 demo addresses + photo source; demo hosting address; Meta API billing card status.
+  No DDF / Realtor work is an open item — it is out of scope by rule above.
