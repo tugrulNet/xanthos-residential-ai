@@ -22,13 +22,69 @@ language, and see what its listing photos actually show — on one screen.
 ## The one flow (nothing else)
 
 1. Address → score card (livability + investment + components + confidence + sources).
-2. Buyer assistant (Muse Spark, Meta Model API): explains the score, compares
-   two neighbourhoods only from the data given. Missing data = say so, never
-   invent it. No price predictions.
+2. Buyer agent (LangGraph, Muse Spark, Meta Model API — see "Agent" below):
+   explains the score, compares two neighbourhoods only from the data given.
+   Missing data = say so, never invent it. No price predictions.
 3. Photo analysis: triage discards blurry / duplicate / uninformative photos,
-   SAM 3.1 segments the rest for features and issue flags. Always show the
-   transparency note (e.g. how many photos were discarded and why).
+   SAM 3.1 segments the rest for features and issue flags (see "SAM" below).
+   Always show the transparency note (e.g. how many photos were discarded and why).
 4. One-page sourced summary, PDF export (QuestPDF).
+
+## Agent — LangGraph (owner decision, 26 Oct 2026)
+
+- The buyer assistant is a LangGraph agent, in Python, not in .NET.
+  .NET only renders the agent's steps and final answer.
+- Graph: `understand → get_score → list_photos/triage → sam_segment →
+  synthesize → verify_sources → END`, with conditional routing: if the score
+  or photos are missing, the graph says so instead of inventing them.
+- Tools (Python functions, same names in code and UI):
+  `get_residential_score`, `list_listing_photos`, `analyze_photos`,
+  `compare_neighbourhoods`.
+- State carries: address, score, photos, triage result, SAM results, messages,
+  sources, and a step log. The step log is streamed/shown in the Blazor UI
+  ("score fetched", "8 of 34 photos discarded", "SAM running") so a judge can
+  see it is an agent, not a single chat call.
+- Before building the LangGraph adapter, verify from the Meta Model API docs
+  how Muse Spark handles tool calling. If Muse Spark is not directly usable
+  as a LangGraph chat model, build a small adapter; if that takes more than
+  one working day, fall back to a direct tool loop with the SAME tools, SAME
+  state, and SAME UI. The fallback is still reported honestly as a tool loop,
+  never presented as LangGraph.
+
+## SAM — how it is implemented well (owner decision, 26 Oct 2026)
+
+- SAM 3.1 is a promptable segmentation model: a short text prompt returns
+  pixel masks for all matching instances in a photo. It is NOT a damage
+  diagnosis model on its own.
+- Three layers, in order:
+  1. Triage first (blur / duplicate / uninformative) — discarded photos never
+     reach SAM, saving credit and time.
+  2. SAM, at most 5 key photos per listing, with a bounded prompt list
+     (e.g. kitchen island, window, door, stain / discoloration, crack).
+     Keep a confidence threshold (e.g. 0.5) and a confidence value per mask.
+  3. Labelling layer: mask + room context (CLIP) + agent reasoning together
+     produce a feature or issue flag. No flag without a mask; no mask without
+     a visible overlay.
+- UI: mask overlay on the photo with on/off toggle, each flag linked to its
+  mask, mask confidence shown. If SAM is unavailable, the UI says "SAM
+  unavailable" and shows triage + CLIP only — never a fake mask.
+- Local SAM weights on this GPU-less server are too slow for live demo use,
+  so SAM runs via the Meta Model API (credit expected ~28 Oct 2026). Before
+  the credit lands, the core runs on triage + CLIP only.
+- Cache SAM masks by photo hash so the same photo is not re-segmented on
+  every demo run.
+
+## Live demo (owner decision, 26 Oct 2026)
+
+- Demo address: **https://xanthos.tugrul.net** (subdomain, to be opened).
+  Deploy only after the core works locally — never deploy an empty scaffold.
+- Server notes: Hestia, separate web domain for the subdomain, HTTPS, and a
+  port that is NOT 5005 (5005 is the Chim app and is why tugrul.net currently
+  shows the Chim site). The nginx proxy must pass WebSocket traffic, because
+  Blazor Server needs it.
+- Demo resilience: cached demo data is the fallback if the live database or
+  the Meta API is down at demo time, and the UI labels cached data as cached.
+  Secrets live on the server only, never in this repo (see security rule).
 
 ## New vs pre-existing (hackathon rule — this decides what the demo may claim)
 
@@ -100,5 +156,11 @@ language, and see what its listing photos actually show — on one screen.
 - Open items from the owner: how the Blazor app reaches the live database
   (existing Xanthos score service contract: URL, method, auth, sample
   request/response) or "start with cached demo scores" approval;
-  3 demo addresses + photo source; demo hosting address; Meta API billing card status.
+  3 demo addresses + photo source; Meta API billing card status;
+  LangGraph adapter verification (Muse Spark tool-calling format).
+  Demo address is decided: xanthos.tugrul.net (see "Live demo").
   No DDF / Realtor work is an open item — it is out of scope by rule above.
+- Day plan (revised, core first): 27 Oct Blazor + score; 28 Oct LangGraph
+  agent; 29 Oct SAM; 30–31 Oct integration + demo deploy to xanthos.tugrul.net;
+  1 Nov no work (move); 2 Nov stretch decision; 3 Nov video + submission text;
+  4 Nov submit by Calgary noon (deadline 21:00 ET).
